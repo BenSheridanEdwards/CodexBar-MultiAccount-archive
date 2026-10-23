@@ -63,13 +63,8 @@ public struct ProviderPluginApprovalBinding: Codable, Equatable, Sendable {
     private static func requiresTypedConfirmation(_ origin: String) -> Bool {
         guard let host = URL(string: origin)?.host?.lowercased() else { return true }
         let normalizedHost = host.hasSuffix(".") ? String(host.dropLast()) : host
-        if normalizedHost == "localhost" || normalizedHost.hasSuffix(".local") {
-            return true
-        }
-        if self.isIPv4Literal(normalizedHost) || normalizedHost.contains(":") {
-            return true
-        }
-        return false
+        return normalizedHost == "localhost" || normalizedHost.hasSuffix(".local")
+            || self.isIPv4Literal(normalizedHost) || normalizedHost.contains(":")
     }
 
     private static func isIPv4Literal(_ host: String) -> Bool {

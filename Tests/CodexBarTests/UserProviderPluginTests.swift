@@ -598,12 +598,24 @@ struct UserProviderPluginTests {
         let transport = RecordingTransport(responseJSON: "{}")
         let plugin = try fixture.loader(transport: transport)
             .load(fileURL: fixture.write(name: "unset.js", source: source))
-        let expected = ProviderPluginError.endpointNotConfigured(plugin: "endpoint-config-demo", setting: "BASE_URL")
+        let expected = "endpoint-config-demo: Configure endpoint settings (BASE_URL)"
 
         for settings in [[:], ["BASE_URL": ""], ["BASE_URL": "  \n "]] as [[String: String]] {
-            #expect(throws: expected) { _ = try plugin.approvalBinding(settings: settings) }
-            await #expect(throws: expected) {
-                _ = try await plugin.fetchUsage(settings: settings, secrets: [:], approvalStore: fixture.approvals)
+            do {
+                _ = try plugin.approvalBinding(settings: settings)
+                Issue.record("missing endpoint must fail closed")
+            } catch {
+                #expect(error.localizedDescription == expected)
+            }
+            do {
+                _ = try await plugin.fetchUsage(
+                    settings: settings,
+                    secrets: [:],
+                    environment: [:],
+                    approvalStore: fixture.approvals)
+                Issue.record("missing endpoint must fail closed")
+            } catch {
+                #expect(error.localizedDescription == expected)
             }
         }
         #expect(transport.requestCount == 0)
@@ -615,7 +627,8 @@ struct UserProviderPluginTests {
             _ = try plugin.approvalBinding(settings: ["BASE_URL": "http://[bad"])
             Issue.record("expected invalid URL error")
         } catch let error as ProviderPluginError {
-            #expect(error != expected)
+            #expect(error == .invalidManifest(
+                "endpoint setting 'BASE_URL' must contain a valid URL before approval"))
         }
 
         let settings = ["BASE_URL": "https://example.com"]
@@ -623,6 +636,29 @@ struct UserProviderPluginTests {
             _ = try await plugin.fetchUsage(settings: settings, secrets: [:], approvalStore: fixture.approvals)
         }
         #expect(transport.requestCount == 0)
+        try fixture.approvals.record(plugin.approvalBinding(settings: settings))
+        let snapshot = try await plugin.fetchUsage(
+            settings: settings,
+            secrets: [:],
+            environment: [:],
+            approvalStore: fixture.approvals)
+        #expect(snapshot.primary?.usedPercent == 25)
+        #expect(transport.requestCount == 0)
+    }
+
+    @MainActor
+    @Test
+    func `missing endpoint guidance follows the app language`() {
+        configureUsageFormatterLocalizationProvider()
+        defer {
+            UsageFormatter.clearLocalizationProvider()
+            UsageFormatter.clearLocaleProvider()
+        }
+        CodexBarLocalizationOverride.$appLanguage.withValue("it") {
+            let error = ProviderPluginError.endpointNotConfigured(plugin: "endpoint-config-demo", setting: "BASE_URL")
+            #expect(error.localizedDescription ==
+                "endpoint-config-demo: Configura le impostazioni degli endpoint (BASE_URL)")
+        }
     }
 
     @Test
