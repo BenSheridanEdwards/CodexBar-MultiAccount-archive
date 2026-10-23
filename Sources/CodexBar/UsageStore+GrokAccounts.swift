@@ -10,7 +10,7 @@ extension UsageStore {
         guard provider == .grok else { return nil }
         if let sourceOverride { return sourceOverride }
         guard tokenOverride == nil else { return nil }
-        let source = self.settings.grokResolvedActiveSource
+        let source = self.settings.grokRoutedActiveSource
         return source.usesManagedHome ? source : nil
     }
 

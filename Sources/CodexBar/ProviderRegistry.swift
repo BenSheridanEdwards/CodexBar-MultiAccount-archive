@@ -199,7 +199,7 @@ struct ProviderRegistry {
         }
         if provider == .grok {
             let grokActiveSource = grokActiveSourceOverride
-                ?? (tokenOverride == nil ? settings.grokResolvedActiveSource : .liveSystem)
+                ?? (tokenOverride == nil ? settings.grokRoutedActiveSource : .liveSystem)
             if grokActiveSourceOverride != nil || grokActiveSource.usesManagedHome {
                 let grokHomePath = settings.grokHomePath(forActiveSource: grokActiveSource) ?? "/dev/null"
                 env = GrokHomeScope.scopedEnvironment(base: env, grokHome: grokHomePath)

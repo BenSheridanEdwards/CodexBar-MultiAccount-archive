@@ -299,6 +299,38 @@ extension CodexBarCLI {
             }
         }
 
+        // Provider-specific by design: Grok managed accounts are separate login homes, not token accounts.
+        if provider == .grok {
+            let homes: [GrokHomeCLIAccount]?
+            do {
+                homes = try GrokHomeAccountCLI.resolve(
+                    selection: tokenContext.selection,
+                    config: tokenContext.config,
+                    baseEnvironment: tokenContext.baseEnvironment)
+            } catch {
+                return Self.usageOutputForAccountResolutionError(
+                    provider: provider,
+                    status: status,
+                    command: command,
+                    error: error)
+            }
+            if let homes {
+                return await Self.collectAccountUsage(
+                    provider: provider,
+                    accounts: homes.map(\.dashboardAccount),
+                    publishPartial: publishPartial)
+                { index in
+                    await Self.fetchUsageOutput(
+                        provider: provider,
+                        account: nil,
+                        grokHome: homes[index],
+                        status: status,
+                        tokenContext: tokenContext,
+                        command: command)
+                }
+            }
+        }
+
         let accounts: [ProviderTokenAccount]
         do {
             accounts = try tokenContext.resolvedAccounts(
@@ -424,27 +456,30 @@ extension CodexBarCLI {
         provider: UsageProvider,
         account: ProviderTokenAccount?,
         codexVisibleAccount: CodexVisibleAccount? = nil,
+        grokHome: GrokHomeCLIAccount? = nil,
         status: ProviderStatusPayload?,
         tokenContext: TokenAccountCLIContext,
         command: UsageCommandContext) async -> UsageCommandOutput
     {
         var output = UsageCommandOutput()
-        let env = tokenContext.environment(
-            base: tokenContext.baseEnvironment,
-            provider: provider,
-            account: account,
-            codexActiveSourceOverride: codexVisibleAccount?.selectionSource)
+        let env = GrokHomeScope.scopedEnvironment(
+            base: tokenContext.environment(
+                base: tokenContext.baseEnvironment,
+                provider: provider,
+                account: account,
+                codexActiveSourceOverride: codexVisibleAccount?.selectionSource),
+            grokHome: grokHome?.homePath)
         let settings = tokenContext.settingsSnapshot(
             for: provider,
             account: account,
             codexActiveSourceOverride: codexVisibleAccount?.selectionSource)
         let configSource = tokenContext.preferredSourceMode(for: provider)
         let baseSource = command.sourceModeOverride ?? configSource
-        let effectiveSourceMode = tokenContext.effectiveSourceMode(
+        let effectiveSourceMode = grokHome != nil ? .oauth : tokenContext.effectiveSourceMode(
             base: baseSource,
             provider: provider,
             account: account)
-        let cacheAccountKey = Self.usageCacheAccountKey(
+        let cacheAccountKey = grokHome?.cacheKey ?? Self.usageCacheAccountKey(
             provider: provider,
             account: account,
             codexVisibleAccount: codexVisibleAccount)
@@ -459,7 +494,7 @@ extension CodexBarCLI {
             return Self.webSourceUnsupportedOutput(
                 provider: provider,
                 account: (
-                    label: account?.label ?? codexVisibleAccount?.menuDisplayName,
+                    label: account?.label ?? codexVisibleAccount?.menuDisplayName ?? grokHome?.label,
                     cacheKey: cacheAccountKey),
                 source: effectiveSourceMode.rawValue + command.sourceLabelSuffix,
                 status: status,
@@ -485,6 +520,7 @@ extension CodexBarCLI {
             claudeFetcher: command.claudeFetcher,
             browserDetection: command.browserDetection,
             selectedTokenAccountID: account?.id,
+            grokExpectedAccountEmail: grokHome.map { $0.email ?? "" },
             tokenAccountTokenUpdater: tokenContext.tokenUpdater(for: account),
             providerManualTokenUpdater: tokenContext.manualTokenUpdater(),
             settingsWriter: Self.pluginSettingsWriter(provider: provider, config: tokenContext.config),
@@ -537,7 +573,7 @@ extension CodexBarCLI {
             Self.appendSuccessRenderOutput(
                 UsageSuccessRenderInput(
                     provider: provider,
-                    accountLabel: account?.label ?? codexVisibleAccount?.menuDisplayName,
+                    accountLabel: account?.label ?? codexVisibleAccount?.menuDisplayName ?? grokHome?.label,
                     cacheAccountKey: cacheAccountKey,
                     version: version,
                     source: source,
@@ -590,7 +626,7 @@ extension CodexBarCLI {
             if command.format == .json {
                 output.payload.append(Self.makeProviderErrorPayload(
                     provider: provider,
-                    account: account?.label ?? codexVisibleAccount?.menuDisplayName,
+                    account: account?.label ?? codexVisibleAccount?.menuDisplayName ?? grokHome?.label,
                     cacheAccountKey: cacheAccountKey,
                     source: effectiveSourceMode.rawValue + command.sourceLabelSuffix,
                     status: status,
@@ -599,10 +635,10 @@ extension CodexBarCLI {
             } else if command.cardsLayout {
                 output.cardFailures.append(CLICardFailure(
                     provider: provider,
-                    accountLabel: account?.label ?? codexVisibleAccount?.menuDisplayName,
+                    accountLabel: account?.label ?? codexVisibleAccount?.menuDisplayName ?? grokHome?.label,
                     message: error.localizedDescription))
             } else if !command.jsonOnly {
-                if let accountLabel = account?.label ?? codexVisibleAccount?.menuDisplayName {
+                if let accountLabel = account?.label ?? codexVisibleAccount?.menuDisplayName ?? grokHome?.label {
                     Self.writeStderr(
                         "Error (\(provider.rawValue) - \(accountLabel)): \(error.localizedDescription)\n")
                 } else {

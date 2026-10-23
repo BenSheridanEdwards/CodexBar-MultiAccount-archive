@@ -2694,6 +2694,7 @@
 "Tertiary" = "第三";
 
 // Grok managed accounts.
+"managed_grok_accounts_paused_by_tokens" = "SuperGrok tokens are configured, so added accounts are paused. Remove the SuperGrok tokens to monitor added accounts.";
 "managed_grok_login_already_running" = "託管 Grok 登入已在執行。請等待完成後再新增或重新驗證其他帳戶。";
 "managed_grok_login_failed" = "託管 Grok 登入未完成。請先在終端機確認 `grok --version` 可以執行，然後再試一次新增帳戶。";
 "managed_grok_login_missing_email" = "Grok 登入已完成，但沒有取得帳戶電子郵件。請確認帳戶已完全登入後再試。";

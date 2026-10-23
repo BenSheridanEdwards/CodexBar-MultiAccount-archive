@@ -2,7 +2,14 @@ import CodexBarCore
 import Foundation
 
 extension SettingsStore {
+    /// Pasted SuperGrok token accounts predate managed homes. While any exist they keep routing and managed
+    /// homes pause, so adding a managed account never silently replaces a working token setup.
+    var grokManagedAccountsPausedByTokenAccounts: Bool {
+        !self.tokenAccounts(for: .grok).isEmpty
+    }
+
     var grokUsesHomeAccounts: Bool {
+        guard !self.grokManagedAccountsPausedByTokenAccounts else { return false }
         if case .managedAccount = self.grokPersistedActiveSource, self.grokManagedAccountStoreIsUnreadable {
             return true
         }
@@ -69,6 +76,12 @@ extension SettingsStore {
             liveAccount: self.grokVisibleAccountProjection.account(id: GrokVisibleAccount.liveAccountID),
             managedAccounts: self.grokManagedAccounts,
             preservesMissingManagedSelection: self.grokManagedAccountStoreIsUnreadable)
+    }
+
+    /// The source fetches route through. Unlike `grokResolvedActiveSource` it is never persisted, so pausing
+    /// managed homes for pasted tokens keeps the saved managed selection for when the tokens are removed.
+    var grokRoutedActiveSource: GrokActiveSource {
+        self.grokManagedAccountsPausedByTokenAccounts ? .liveSystem : self.grokResolvedActiveSource
     }
 
     var grokManagedAccounts: [ManagedGrokAccount] {

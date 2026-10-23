@@ -357,7 +357,7 @@ extension UsageStore {
         let tokenAccount = self.settings.effectiveSelectedTokenAccount(for: provider)
         let grokActiveSourceOverride: GrokActiveSource? = {
             guard provider == .grok else { return nil }
-            let source = self.settings.grokResolvedActiveSource
+            let source = self.settings.grokRoutedActiveSource
             return source.usesManagedHome ? source : nil
         }()
         let fetchContext = self.makeFetchContext(

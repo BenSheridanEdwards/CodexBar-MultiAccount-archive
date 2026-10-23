@@ -356,8 +356,6 @@ struct GrokManagedAccountRoutingTests {
         #expect(env["GROK_HOME"] == GrokHomeScope.normalizedHomePath(home.path))
         #expect(env[GrokSettingsReader.oauthTokenEnvironmentKey] == nil)
 
-        settings.addTokenAccount(provider: .grok, label: "Pasted A", token: "fake-token-a")
-        settings.addTokenAccount(provider: .grok, label: "Pasted B", token: "fake-token-b")
         let usageStore = UsageStore(
             fetcher: UsageFetcher(environment: [:]),
             browserDetection: BrowserDetection(cacheTTL: 0),
@@ -421,6 +419,61 @@ struct GrokManagedAccountRoutingTests {
         let reassigned = try #require(usageStore.grokAccountSnapshots.first { $0.id == activeID })
         #expect(reassigned.snapshot == nil)
         #expect(reassigned.error != nil)
+    }
+
+    @Test
+    @MainActor
+    func `pasted token accounts pause managed routing without losing the saved selection`() throws {
+        let settings = testSettingsStore(suiteName: "GrokRouting-paused")
+        let accountID = UUID()
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "grok-paused-\(accountID.uuidString)",
+            isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let store = FileManagedGrokAccountStore()
+        let previous = (try? store.loadAccounts()) ?? ManagedGrokAccountSet(version: 1, accounts: [])
+        defer { try? store.storeAccounts(previous) }
+        try store.storeAccounts(
+            ManagedGrokAccountSet(
+                version: 1,
+                accounts: [
+                    ManagedGrokAccount(
+                        id: accountID,
+                        email: "managed@example.com",
+                        managedHomePath: home.path,
+                        createdAt: 1,
+                        updatedAt: 1,
+                        lastAuthenticatedAt: 1),
+                ]))
+        settings.grokActiveSource = .managedAccount(id: accountID)
+        settings.addTokenAccount(provider: .grok, label: "Pasted", token: "fake-token")
+        let base = ["GROK_HOME": "/tmp/ambient-grok"]
+
+        #expect(settings.grokManagedAccountsPausedByTokenAccounts)
+        #expect(!settings.grokUsesHomeAccounts)
+        #expect(settings.grokRoutedActiveSource == .liveSystem)
+        #expect(!settings.persistResolvedGrokActiveSourceCorrectionIfNeeded())
+        #expect(settings.grokPersistedActiveSource == .managedAccount(id: accountID))
+        let paused = ProviderRegistry.makeEnvironment(
+            base: base,
+            provider: .grok,
+            settings: settings,
+            tokenOverride: nil)
+        #expect(paused["GROK_HOME"] == "/tmp/ambient-grok")
+
+        let pasted = try #require(settings.tokenAccounts(for: .grok).first)
+        settings.removeTokenAccount(provider: .grok, accountID: pasted.id)
+
+        #expect(settings.grokUsesHomeAccounts)
+        #expect(settings.grokRoutedActiveSource == .managedAccount(id: accountID))
+        let resumed = ProviderRegistry.makeEnvironment(
+            base: base,
+            provider: .grok,
+            settings: settings,
+            tokenOverride: nil)
+        #expect(resumed["GROK_HOME"] == GrokHomeScope.normalizedHomePath(home.path))
     }
 
     @Test

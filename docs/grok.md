@@ -28,7 +28,10 @@ CodexBar can add extra SuperGrok OAuth accounts without overwriting `~/.grok`.
 - An unreadable managed-account file keeps the saved managed selection and fails the refresh before any other credential is used.
 - Managed usage history is stored under the managed account, not under a saved pasted token.
 - While a managed account exists, the usage-source picker, cookie fields, and pasted-token selector are inactive. Remove the managed accounts to use those sources again.
+- Pasted SuperGrok token accounts keep precedence: while any exist, managed accounts are paused, refreshes use the pasted tokens exactly as before, and Settings explains why. The saved managed selection is kept and resumes once the pasted tokens are removed, so adding an account never silently replaces a working token setup.
+- System re-auth runs `grok login --device-auth` with `GROK_HOME` set to `~/.grok`, the same home the System row reads, even when `GROK_HOME` is exported for the app.
 - CodexBar does not copy or refresh Grok tokens; re-auth runs `grok login --device-auth` against that home.
+- CLI: `codexbar usage --provider grok --all-accounts` fetches System and every managed home; `--account <email|id|system>` fetches one. Plain `usage --provider grok` follows the managed account selected in Settings. Each home is read through its own OAuth login and must report the stored email. With pasted token accounts configured, `--account` and `--all-accounts` keep selecting those token accounts.
 
 ## Settings source picker
 

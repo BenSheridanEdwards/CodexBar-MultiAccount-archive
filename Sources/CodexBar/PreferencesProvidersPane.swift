@@ -405,6 +405,10 @@ struct ProvidersPane: View {
             GrokAccountsSectionNotice(
                 text: L("managed_account_storage_unreadable"),
                 tone: .warning)
+        } else if self.settings.grokManagedAccountsPausedByTokenAccounts, !self.settings.grokManagedAccounts.isEmpty {
+            GrokAccountsSectionNotice(
+                text: L("managed_grok_accounts_paused_by_tokens"),
+                tone: .warning)
         } else {
             nil
         }

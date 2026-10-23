@@ -914,11 +914,6 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
         self.removeStatusItemPreservingPlacement(item)
     }
 
-    func isVisible(_ provider: UsageProvider) -> Bool {
-        self.store.debugForceAnimation || self.isEnabled(provider)
-            || self.fallbackProvider == provider
-    }
-
     func switchAccountSubtitle(for target: UsageProvider) -> String? {
         guard self.loginTask != nil, let provider = self.activeLoginProvider, provider == target
         else { return nil }
@@ -1015,6 +1010,11 @@ extension StatusItemController {
 
 extension StatusItemController {
     /// Fleet eligibility can create or remove provider items even when local refresh availability never changes.
+    func isVisible(_ provider: UsageProvider) -> Bool {
+        self.store.debugForceAnimation || self.isEnabled(provider)
+            || self.fallbackProvider == provider
+    }
+
     func refreshForCloudSyncChange() {
         self.lastAppliedMergedIconRenderSignature = nil
         self.lastAppliedProviderIconRenderSignatures.removeAll()

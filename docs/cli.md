@@ -201,7 +201,7 @@ sources and setup guide. The [provider ID list](provider-ids.md) is generated fr
   - Use a registered [provider ID](provider-ids.md) or CLI alias. Enabled providers and ordering live in the config file.
   - With three or more providers enabled, the default stays scoped to enabled providers; use `--provider all` to query
     every registered provider.
-  - `--account <label>` / `--account-index <n>` / `--all-accounts` (token accounts from config, or all visible Codex accounts for Codex; requires a single provider).
+  - `--account <label>` / `--account-index <n>` / `--all-accounts` (token accounts from config, all visible Codex accounts for Codex, or System plus managed homes for Grok; requires a single provider).
   - `--no-credits` (hide Codex credits in text output).
   - `--pretty` (pretty-print JSON).
   - `--status` (fetch provider status pages and include them in output).
@@ -275,6 +275,13 @@ For Codex, `--all-accounts` and `codexbar serve` enumerate the same visible acco
 managed Codex accounts from `managed-codex-accounts.json` plus the live system account when present.
 Each fetch is scoped to that account's Codex home before the normal Codex web/OAuth/CLI strategy runs, and JSON
 payloads include the visible account label in `account`.
+
+### Grok accounts
+For Grok with managed accounts (Settings → Providers → Grok → **Add Account**) and no pasted SuperGrok token accounts,
+`--all-accounts` fetches the System `~/.grok` login and every managed home from `managed-grok-accounts.json`, and
+`--account <email|id|system>` fetches one of them. Plain `usage --provider grok` follows the managed account selected
+in Settings. Each fetch sets `GROK_HOME` to that account's home, reads it through SuperGrok OAuth only, and must report
+the stored email. With pasted token accounts configured, account flags keep selecting those token accounts.
 
 ### Cost JSON payload
 `codexbar cost --format json` emits an array of payloads (one per provider).
