@@ -13,6 +13,23 @@ fetched via the ACP JSON-RPC `_x.ai/billing` extension method over `grok agent s
 when available, then via the Grok CLI billing REST API using the local login token.
 The grok.com billing gRPC-web endpoint remains a best-effort fallback.
 
+## Managed OAuth accounts
+
+CodexBar can add extra SuperGrok OAuth accounts without overwriting `~/.grok`.
+
+- Settings → Providers → Grok → **Add Account** runs `GROK_HOME=<managed-home> grok login --device-auth`.
+- `--device-auth` is the headless device-code flow. `--oauth` is a TUI paste-code flow and cannot complete from CodexBar because there is no stdin.
+- Each added account keeps its own `auth.json` under `Application Support/CodexBar/managed-grok-homes/`.
+- The live `~/.grok` account still appears as **(System)** when present.
+- Usage refreshes set `GROK_HOME` per account and use the SuperGrok OAuth billing path. Cookie fallback is disabled for these stacked refreshes.
+- The menu follows Settings → Menu → Content → Multi-account layout, same as Codex: segmented switcher by default, stacked cards when that layout is selected.
+- Explicit System cards use the System auth file and OAuth, ignoring competing pasted tokens and browser cookies. Ordinary ambient refreshes keep their existing credential precedence.
+- Managed refreshes use their own account snapshots, including when only one managed account exists; they never populate pasted-token account caches. The captured OAuth identity must match the expected account before billing is requested.
+- An unreadable managed-account file keeps the saved managed selection and fails the refresh before any other credential is used.
+- Managed usage history is stored under the managed account, not under a saved pasted token.
+- While a managed account exists, the usage-source picker, cookie fields, and pasted-token selector are inactive. Remove the managed accounts to use those sources again.
+- CodexBar does not copy or refresh Grok tokens; re-auth runs `grok login --device-auth` against that home.
+
 ## Settings source picker
 
 - **Auto**: Grok CLI, then SuperGrok OAuth CLI-proxy, then browser cookies, then bearer gRPC.

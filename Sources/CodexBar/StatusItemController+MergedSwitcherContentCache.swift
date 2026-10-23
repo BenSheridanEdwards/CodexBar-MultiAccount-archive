@@ -5,21 +5,21 @@ struct CachedMergedSwitcherMenuContent {
     let menuWidth: CGFloat
     let codexAccountDisplay: CodexAccountMenuDisplay?
     let tokenAccountDisplay: TokenAccountMenuDisplay?
+    let grokAccountDisplay: GrokAccountMenuDisplay?
     let localizationSignature: String
     let items: [NSMenuItem]
 
     func matches(
         requiredMenuContentVersion: Int,
-        menuWidth: CGFloat,
-        codexAccountDisplay: CodexAccountMenuDisplay?,
-        tokenAccountDisplay: TokenAccountMenuDisplay?,
+        context: MergedSwitcherContentCacheContext,
         localizationSignature: String)
         -> Bool
     {
         self.requiredMenuContentVersion >= requiredMenuContentVersion &&
-            abs(self.menuWidth - menuWidth) <= 0.5 &&
-            self.codexAccountDisplay == codexAccountDisplay &&
-            self.tokenAccountDisplay == tokenAccountDisplay &&
+            abs(self.menuWidth - context.menuWidth) <= 0.5 &&
+            self.codexAccountDisplay == context.codexAccountDisplay &&
+            self.tokenAccountDisplay == context.tokenAccountDisplay &&
+            self.grokAccountDisplay == context.grokAccountDisplay &&
             self.localizationSignature == localizationSignature
     }
 }
@@ -28,6 +28,7 @@ struct MergedSwitcherContentCacheContext {
     let menuWidth: CGFloat
     let codexAccountDisplay: CodexAccountMenuDisplay?
     let tokenAccountDisplay: TokenAccountMenuDisplay?
+    let grokAccountDisplay: GrokAccountMenuDisplay?
     let contentVersion: Int?
 }
 
@@ -66,6 +67,7 @@ extension StatusItemController {
                 menuWidth: menuWidth,
                 codexAccountDisplay: self.lastCodexAccountMenuDisplay,
                 tokenAccountDisplay: self.lastTokenAccountMenuDisplay,
+                grokAccountDisplay: self.lastGrokAccountMenuDisplay,
                 contentVersion: contentVersion))
     }
 
@@ -84,6 +86,7 @@ extension StatusItemController {
             menuWidth: context.menuWidth,
             codexAccountDisplay: context.codexAccountDisplay,
             tokenAccountDisplay: context.tokenAccountDisplay,
+            grokAccountDisplay: context.grokAccountDisplay,
             localizationSignature: self.lastMenuLocalizationSignature,
             items: items)
         self.mergedSwitcherContentCaches[ObjectIdentifier(menu), default: [:]][selection] = entry
@@ -93,18 +96,14 @@ extension StatusItemController {
     func reusableMergedSwitcherContent(
         for selection: ProviderSwitcherSelection,
         in menu: NSMenu,
-        menuWidth: CGFloat,
-        codexAccountDisplay: CodexAccountMenuDisplay?,
-        tokenAccountDisplay: TokenAccountMenuDisplay?)
+        context: MergedSwitcherContentCacheContext)
         -> [NSMenuItem]?
     {
         let key = ObjectIdentifier(menu)
         guard let entry = self.mergedSwitcherContentCaches[key]?[selection] else { return nil }
         guard entry.matches(
             requiredMenuContentVersion: self.menuSession.latestRequiredRebuildVersion,
-            menuWidth: menuWidth,
-            codexAccountDisplay: codexAccountDisplay,
-            tokenAccountDisplay: tokenAccountDisplay,
+            context: context,
             localizationSignature: self.menuLocalizationSignature())
         else {
             self.mergedSwitcherContentCaches[key]?.removeValue(forKey: selection)
@@ -116,21 +115,18 @@ extension StatusItemController {
     func addCachedMergedSwitcherContent(
         for selection: ProviderSwitcherSelection,
         to menu: NSMenu,
-        menuWidth: CGFloat,
-        codexAccountDisplay: CodexAccountMenuDisplay?,
-        tokenAccountDisplay: TokenAccountMenuDisplay?)
+        context: MergedSwitcherContentCacheContext)
         -> Bool
     {
         guard let items = self.reusableMergedSwitcherContent(
             for: selection,
             in: menu,
-            menuWidth: menuWidth,
-            codexAccountDisplay: codexAccountDisplay,
-            tokenAccountDisplay: tokenAccountDisplay)
+            context: context)
         else { return false }
 
-        self.lastCodexAccountMenuDisplay = codexAccountDisplay
-        self.lastTokenAccountMenuDisplay = tokenAccountDisplay
+        self.lastCodexAccountMenuDisplay = context.codexAccountDisplay
+        self.lastTokenAccountMenuDisplay = context.tokenAccountDisplay
+        self.lastGrokAccountMenuDisplay = context.grokAccountDisplay
         for item in items {
             menu.addItem(item)
         }

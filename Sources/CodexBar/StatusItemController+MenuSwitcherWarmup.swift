@@ -76,7 +76,12 @@ extension StatusItemController {
         let tokenAccountDisplay = isOverviewSelected || isPluginSelected
             ? nil
             : self.tokenAccountMenuDisplay(for: currentProvider)
-        let showAllAccounts = (tokenAccountDisplay?.showAll ?? false) || (codexAccountDisplay?.showAll ?? false)
+        let grokAccountDisplay = isOverviewSelected || isPluginSelected
+            ? nil
+            : self.grokAccountMenuDisplay(for: currentProvider)
+        let showAllAccounts = (tokenAccountDisplay?.showAll ?? false)
+            || (codexAccountDisplay?.showAll ?? false)
+            || (grokAccountDisplay?.showAll ?? false)
         let descriptor = self.makeMenuDescriptor(
             provider: selectedProvider,
             includeContextualActions: !isOverviewSelected && !isPluginSelected)
@@ -87,15 +92,19 @@ extension StatusItemController {
         guard self.reusableMergedSwitcherContent(
             for: selection,
             in: menu,
-            menuWidth: menuWidth,
-            codexAccountDisplay: codexAccountDisplay,
-            tokenAccountDisplay: tokenAccountDisplay) == nil
+            context: .init(
+                menuWidth: menuWidth,
+                codexAccountDisplay: codexAccountDisplay,
+                tokenAccountDisplay: tokenAccountDisplay,
+                grokAccountDisplay: grokAccountDisplay,
+                contentVersion: nil)) == nil
         else { return }
 
         // Building sibling content updates the "last rendered display" trackers used by
         // smart-update compatibility checks; restore them so the live tab's state wins.
         let savedCodexDisplay = self.lastCodexAccountMenuDisplay
         let savedTokenDisplay = self.lastTokenAccountMenuDisplay
+        let savedGrokDisplay = self.lastGrokAccountMenuDisplay
         let scratch = NSMenu()
         scratch.autoenablesItems = false
         self.addSwitcherScopedMenuContent(
@@ -108,12 +117,14 @@ extension StatusItemController {
                 menuWidth: menuWidth,
                 codexAccountDisplay: codexAccountDisplay,
                 tokenAccountDisplay: tokenAccountDisplay,
+                grokAccountDisplay: grokAccountDisplay,
                 openAIContext: self.openAIWebContext(
                     currentProvider: currentProvider,
                     showAllAccounts: showAllAccounts),
                 descriptor: descriptor))
         self.lastCodexAccountMenuDisplay = savedCodexDisplay
         self.lastTokenAccountMenuDisplay = savedTokenDisplay
+        self.lastGrokAccountMenuDisplay = savedGrokDisplay
 
         let items = scratch.items
         scratch.removeAllItems()
@@ -131,6 +142,7 @@ extension StatusItemController {
                 menuWidth: menuWidth,
                 codexAccountDisplay: codexAccountDisplay,
                 tokenAccountDisplay: tokenAccountDisplay,
+                grokAccountDisplay: grokAccountDisplay,
                 contentVersion: self.menuSession.contentVersion))
     }
 }

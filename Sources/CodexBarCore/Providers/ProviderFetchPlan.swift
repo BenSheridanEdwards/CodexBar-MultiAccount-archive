@@ -41,6 +41,7 @@ public struct ProviderFetchContext: Sendable {
     public let claudeFetcher: any ClaudeUsageFetching
     public let browserDetection: BrowserDetection
     public let selectedTokenAccountID: UUID?
+    public let grokExpectedAccountEmail: String?
     public let tokenAccountTokenUpdater: TokenAccountTokenUpdater?
     public typealias SettingsWriter = @Sendable (UsageProvider, [String: String]) async -> ProviderSettingsSaveOutcome
     public let settingsWriter: SettingsWriter?
@@ -78,6 +79,7 @@ public struct ProviderFetchContext: Sendable {
         claudeFetcher: any ClaudeUsageFetching,
         browserDetection: BrowserDetection,
         selectedTokenAccountID: UUID? = nil,
+        grokExpectedAccountEmail: String? = nil,
         tokenAccountTokenUpdater: TokenAccountTokenUpdater? = nil,
         providerManualTokenUpdater: ProviderManualTokenUpdater? = nil,
         settingsWriter: SettingsWriter? = nil,
@@ -102,6 +104,7 @@ public struct ProviderFetchContext: Sendable {
         self.claudeFetcher = claudeFetcher
         self.browserDetection = browserDetection
         self.selectedTokenAccountID = selectedTokenAccountID
+        self.grokExpectedAccountEmail = grokExpectedAccountEmail
         self.tokenAccountTokenUpdater = tokenAccountTokenUpdater
         self.providerManualTokenUpdater = providerManualTokenUpdater
         self.settingsWriter = settingsWriter

@@ -51,6 +51,9 @@ extension UsageStore {
             self.codexAccountSnapshots = []
             self.lastCodexUsagePublicationGuard = nil
         }
+        if provider == .grok {
+            self.grokAccountSnapshots = []
+        }
         if provider == .kilo {
             self.kiloScopeSnapshots = []
         }

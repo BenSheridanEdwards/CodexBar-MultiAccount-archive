@@ -318,6 +318,13 @@ extension UsageStore {
             self.reconcileCodexWidgetAccountSnapshots()
         }
 
+        if provider == .grok, self.shouldFetchAllGrokVisibleAccounts() {
+            await self.refreshGrokVisibleAccountsForMenu(generation: generation)
+            return nil
+        } else if provider == .grok {
+            self.grokAccountSnapshots = []
+        }
+
         if provider == .kilo, self.shouldFanOutKiloScopes() {
             await self.refreshKiloScopes(generation: generation)
             guard self.isCurrentProviderRefreshGeneration(provider, generation: generation) else { return nil }
@@ -348,9 +355,15 @@ extension UsageStore {
         }
 
         let tokenAccount = self.settings.effectiveSelectedTokenAccount(for: provider)
+        let grokActiveSourceOverride: GrokActiveSource? = {
+            guard provider == .grok else { return nil }
+            let source = self.settings.grokResolvedActiveSource
+            return source.usesManagedHome ? source : nil
+        }()
         let fetchContext = self.makeFetchContext(
             provider: provider,
             override: nil,
+            grokActiveSourceOverride: grokActiveSourceOverride,
             claudeOwnerCLIRecoveryOnly: retryMode == .claudeOwnerCLIRecovery)
         let claudeHasAdminAPIKey = ClaudeAdminAPISettingsReader.apiKey(environment: fetchContext.env) != nil
         let claudeActiveAccountIdentitySourceEligible = Self.shouldTrackClaudeActiveAccountIdentity(
@@ -1487,23 +1500,6 @@ extension UsageStore {
         return self.accountSnapshots[provider.instanceID]?.first { cached in
             cached.account.id == account.id &&
                 cached.cacheKey == self.tokenAccountSnapshotCacheKey(provider: provider, account: account)
-        }
-    }
-
-    nonisolated static func isPreservableNetworkTransportError(_ error: Error) -> Bool {
-        let nsError = self.underlyingProviderTransportError(error) as NSError
-        guard nsError.domain == NSURLErrorDomain else { return false }
-        switch nsError.code {
-        case NSURLErrorTimedOut,
-             NSURLErrorCancelled,
-             NSURLErrorNetworkConnectionLost,
-             NSURLErrorNotConnectedToInternet,
-             NSURLErrorCannotFindHost,
-             NSURLErrorCannotConnectToHost,
-             NSURLErrorDNSLookupFailed:
-            return true
-        default:
-            return false
         }
     }
 

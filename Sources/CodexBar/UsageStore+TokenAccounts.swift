@@ -664,7 +664,8 @@ extension UsageStore {
     func fetchOutcome(
         provider: UsageProvider,
         override: TokenAccountOverride?,
-        codexActiveSourceOverride: CodexActiveSource? = nil) async -> ProviderFetchOutcome
+        codexActiveSourceOverride: CodexActiveSource? = nil,
+        grokActiveSourceOverride: GrokActiveSource? = nil) async -> ProviderFetchOutcome
     {
         let descriptor =
             self.providerSpecs[provider]?.descriptor
@@ -673,7 +674,8 @@ extension UsageStore {
         let context = self.makeFetchContext(
             provider: provider,
             override: override,
-            codexActiveSourceOverride: codexActiveSourceOverride)
+            codexActiveSourceOverride: codexActiveSourceOverride,
+            grokActiveSourceOverride: grokActiveSourceOverride)
         let outcome = await descriptor.fetchOutcome(context: context)
         guard provider == .codex else { return outcome }
         return await Self.attachingCodexResetCreditsIfNeeded(
@@ -867,14 +869,19 @@ extension UsageStore {
         provider: UsageProvider,
         override: TokenAccountOverride?,
         codexActiveSourceOverride: CodexActiveSource? = nil,
+        grokActiveSourceOverride: GrokActiveSource? = nil,
         includeCredits: Bool = false,
         claudeOwnerCLIRecoveryOnly: Bool = false) -> ProviderFetchContext
     {
-        let account = ProviderTokenAccountSelection.selectedAccount(
+        let grokSource = self.grokFetchSource(
+            provider,
+            tokenOverride: override,
+            sourceOverride: grokActiveSourceOverride)
+        let account = grokSource == nil ? ProviderTokenAccountSelection.selectedAccount(
             provider: provider,
             settings: self.settings,
-            override: override)
-        let sourceMode = ProviderRegistry.resolvedSourceMode(
+            override: override) : nil
+        let sourceMode: ProviderSourceMode = grokSource != nil ? .oauth : ProviderRegistry.resolvedSourceMode(
             provider: provider,
             settings: self.settings,
             account: account)
@@ -887,7 +894,8 @@ extension UsageStore {
             provider: provider,
             settings: self.settings,
             tokenOverride: override,
-            codexActiveSourceOverride: codexActiveSourceOverride)
+            codexActiveSourceOverride: codexActiveSourceOverride,
+            grokActiveSourceOverride: grokActiveSourceOverride)
         let fetcher = ProviderRegistry.makeFetcher(base: self.codexFetcher, provider: provider, env: env)
         let contextProvider = provider
         let publicationGeneration = self.providerRefreshPublicationContexts[provider.instanceID]?
@@ -913,6 +921,7 @@ extension UsageStore {
             claudeFetcher: self.claudeFetcher,
             browserDetection: self.browserDetection,
             selectedTokenAccountID: account?.id,
+            grokExpectedAccountEmail: self.grokExpectedAccountEmail(for: grokSource),
             tokenAccountTokenUpdater: { [weak self] provider, accountID, token in
                 await MainActor.run {
                     guard let self, provider == contextProvider,
@@ -1465,7 +1474,8 @@ extension UsageStore {
         account: ProviderTokenAccount?,
         fallbackSnapshot: UsageSnapshot?,
         fallbackAccountSnapshot: TokenAccountUsageSnapshot? = nil,
-        generation: UInt64? = nil) async
+        generation: UInt64? = nil,
+        historyAccount: ProviderTokenAccount? = nil) async
     {
         guard self.isCurrentProviderRefreshGeneration(provider, generation: generation) else { return }
         if case .failure = outcome.result, let account,
@@ -1525,7 +1535,7 @@ extension UsageStore {
             await self.recordPlanUtilizationHistorySample(
                 provider: provider,
                 snapshot: backfilled,
-                account: account,
+                account: historyAccount ?? account,
                 sessionRestoredNotificationPending: sessionRestored)
             guard self.isCurrentProviderRefreshGeneration(provider, generation: generation) else { return }
             self.emitUsageUpdatedHook(

@@ -250,7 +250,10 @@ extension StatusItemController {
                 menu: menu,
                 provider: currentProvider)
         let tokenAccountDisplay = suppressAccountSwitchers ? nil : self.tokenAccountMenuDisplay(for: currentProvider)
-        let showAllAccounts = (tokenAccountDisplay?.showAll ?? false) || (codexAccountDisplay?.showAll ?? false)
+        let grokAccountDisplay = suppressAccountSwitchers ? nil : self.grokAccountMenuDisplay(for: currentProvider)
+        let showAllAccounts = (tokenAccountDisplay?.showAll ?? false)
+            || (codexAccountDisplay?.showAll ?? false)
+            || (grokAccountDisplay?.showAll ?? false)
         let openAIContext = self.openAIWebContext(
             currentProvider: currentProvider,
             showAllAccounts: showAllAccounts)
@@ -262,19 +265,17 @@ extension StatusItemController {
             selectedProvider: selectedProvider,
             descriptor: descriptor)
 
-        let hasTokenSwitcher = menu.items.contains { $0.view is TokenAccountSwitcherView }
-        let hasCodexSwitcher = menu.items.contains { $0.view is CodexAccountSwitcherView }
         let switcherProvidersMatch = switcherProviderIDs == self.lastSwitcherProviders
         let switcherUsageBarsShowUsedMatch = self.settings.usageBarsShowUsed == self.lastSwitcherUsageBarsShowUsed
         let switcherSelectionMatches = switcherSelection == self.lastMergedSwitcherSelection
         let switcherOverviewAvailabilityMatches = includesOverview == self.lastSwitcherIncludesOverview
         let menuLocalizationMatches = self.menuLocalizationSignature() == self.lastMenuLocalizationSignature
         let tokenSwitcherCompatible = tokenAccountDisplay == self.lastTokenAccountMenuDisplay &&
-            ((tokenAccountDisplay?.showSwitcher == true && hasTokenSwitcher) ||
-                (tokenAccountDisplay?.showSwitcher != true && !hasTokenSwitcher))
+            (tokenAccountDisplay?.showSwitcher == true) == menu.items.contains { $0.view is TokenAccountSwitcherView }
         let codexSwitcherCompatible = codexAccountDisplay == self.lastCodexAccountMenuDisplay &&
-            ((codexAccountDisplay?.showSwitcher == true && hasCodexSwitcher) ||
-                (codexAccountDisplay?.showSwitcher != true && !hasCodexSwitcher))
+            (codexAccountDisplay?.showSwitcher == true) == menu.items.contains { $0.view is CodexAccountSwitcherView }
+        let grokSwitcherCompatible = grokAccountDisplay == self.lastGrokAccountMenuDisplay &&
+            (grokAccountDisplay?.showSwitcher == true) == menu.items.contains { $0.view is GrokAccountSwitcherView }
         let reusableRowWidthsMatch = self.reusableFixedWidthRows(in: menu).allSatisfy { item in
             guard let view = item.view else { return false }
             return abs(view.frame.width - menuWidth) <= 0.5
@@ -292,6 +293,7 @@ extension StatusItemController {
             menuLocalizationMatches &&
             tokenSwitcherCompatible &&
             codexSwitcherCompatible &&
+            grokSwitcherCompatible &&
             reusableRowWidthsMatch &&
             !menu.items.isEmpty &&
             menu.items.first?.view is ProviderSwitcherView
@@ -318,6 +320,7 @@ extension StatusItemController {
                     menuWidth: menuWidth,
                     codexAccountDisplay: codexAccountDisplay,
                     tokenAccountDisplay: tokenAccountDisplay,
+                    grokAccountDisplay: grokAccountDisplay,
                     openAIContext: openAIContext,
                     descriptor: descriptor))
             return
@@ -351,6 +354,7 @@ extension StatusItemController {
                     menuWidth: menuWidth,
                     codexAccountDisplay: codexAccountDisplay,
                     tokenAccountDisplay: tokenAccountDisplay,
+                    grokAccountDisplay: grokAccountDisplay,
                     openAIContext: openAIContext,
                     descriptor: descriptor))
             return
@@ -373,30 +377,9 @@ extension StatusItemController {
                 menuWidth: menuWidth,
                 codexAccountDisplay: codexAccountDisplay,
                 tokenAccountDisplay: tokenAccountDisplay,
+                grokAccountDisplay: grokAccountDisplay,
                 openAIContext: openAIContext,
                 descriptor: descriptor))
-    }
-
-    private func reusableFixedWidthRows(in menu: NSMenu) -> [NSMenuItem] {
-        guard !menu.items.isEmpty else { return [] }
-
-        var reusableRows: [NSMenuItem] = []
-        var index = self.providerSwitcherContentStartIndex(in: menu)
-        if index > 0 {
-            reusableRows.append(menu.items[0])
-        }
-        if menu.items.count > index,
-           menu.items[index].view is CodexAccountSwitcherView
-        {
-            reusableRows.append(menu.items[index])
-            index += 2
-        }
-        if menu.items.count > index,
-           menu.items[index].view is TokenAccountSwitcherView
-        {
-            reusableRows.append(menu.items[index])
-        }
-        return reusableRows
     }
 
     private func rebuildMenuContent(
@@ -431,9 +414,12 @@ extension StatusItemController {
                self.addCachedMergedSwitcherContent(
                    for: contentSelection,
                    to: menu,
-                   menuWidth: context.menuWidth,
-                   codexAccountDisplay: context.codexAccountDisplay,
-                   tokenAccountDisplay: context.tokenAccountDisplay)
+                   context: .init(
+                       menuWidth: context.menuWidth,
+                       codexAccountDisplay: context.codexAccountDisplay,
+                       tokenAccountDisplay: context.tokenAccountDisplay,
+                       grokAccountDisplay: context.grokAccountDisplay,
+                       contentVersion: nil))
             {
                 return
             }
@@ -447,12 +433,18 @@ extension StatusItemController {
                 display: context.tokenAccountDisplay,
                 width: context.menuWidth)
             self.lastTokenAccountMenuDisplay = context.tokenAccountDisplay
+            self.addGrokAccountSwitcherIfNeeded(
+                to: menu,
+                display: context.grokAccountDisplay,
+                width: context.menuWidth)
+            self.lastGrokAccountMenuDisplay = context.grokAccountDisplay
             let menuContext = MenuCardContext(
                 currentProvider: context.currentProvider,
                 selectedProvider: context.selectedProvider,
                 menuWidth: context.menuWidth,
                 codexAccountDisplay: context.codexAccountDisplay,
                 tokenAccountDisplay: context.tokenAccountDisplay,
+                grokAccountDisplay: context.grokAccountDisplay,
                 openAIContext: context.openAIContext)
             self.addPrimaryMenuContent(
                 to: menu,
@@ -686,6 +678,12 @@ extension StatusItemController {
     private func addMenuCards(to menu: NSMenu, context: MenuCardContext, captureMenu: NSMenu? = nil) -> Bool {
         let fleetProjection = self.fleetAccountProjection(for: context.currentProvider)
         if self.addFleetFallback(fleetProjection, to: menu, context: context) {
+            return false
+        }
+
+        if let grokAccountDisplay = context.grokAccountDisplay, grokAccountDisplay.showAll {
+            self.addGrokAccountMenuCards(grokAccountDisplay, to: menu, context: context)
+            self.addFleetAccountMenuCards(fleetProjection.additionalAccounts, to: menu, context: context)
             return false
         }
 
