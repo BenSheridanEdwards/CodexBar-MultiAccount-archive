@@ -25,9 +25,11 @@ public struct ProviderPluginApprovalBinding: Codable, Equatable, Sendable {
                 origins.insert(origin)
             case let .setting(key, policy):
                 guard let rawValue = settings[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
-                      !rawValue.isEmpty,
-                      let url = URL(string: rawValue)
+                      !rawValue.isEmpty
                 else {
+                    throw ProviderPluginError.endpointNotConfigured(plugin: manifest.id.rawValue, setting: key)
+                }
+                guard let url = URL(string: rawValue) else {
                     throw ProviderPluginError.invalidManifest(
                         "endpoint setting '\(key)' must contain a valid URL before approval")
                 }

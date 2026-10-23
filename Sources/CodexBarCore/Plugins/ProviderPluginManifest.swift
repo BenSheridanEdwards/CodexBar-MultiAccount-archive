@@ -504,6 +504,7 @@ enum ProviderPluginOrigin {
 public enum ProviderPluginError: LocalizedError, Sendable, Equatable {
     case load(String)
     case invalidManifest(String)
+    case endpointNotConfigured(plugin: String, setting: String)
     case networkPolicy(String)
     case http(String)
     case secretAccess(String)
@@ -515,6 +516,8 @@ public enum ProviderPluginError: LocalizedError, Sendable, Equatable {
         switch self {
         case let .load(message): "Provider plugin load failed: \(message)"
         case let .invalidManifest(message): "Invalid provider plugin manifest: \(message)"
+        case let .endpointNotConfigured(plugin, setting):
+            "Provider plugin '\(plugin)' needs its '\(setting)' setting before it can fetch usage."
         case let .networkPolicy(message): "Provider plugin network policy rejected the request: \(message)"
         case let .http(message): "Provider plugin HTTP error: \(message)"
         case let .secretAccess(message): "Provider plugin secret access denied: \(message)"

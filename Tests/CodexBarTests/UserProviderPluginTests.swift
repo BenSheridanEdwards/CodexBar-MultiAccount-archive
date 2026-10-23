@@ -583,6 +583,49 @@ struct UserProviderPluginTests {
     }
 
     @Test
+    func `unset endpoint setting reports not configured and fails closed`() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let source = """
+        defineProvider({
+          id: "endpoint-config-demo",
+          name: "Endpoint Config Demo",
+          endpoints: [{ setting: "BASE_URL", policy: "https-or-loopback-http" }],
+          settings: [{ key: "BASE_URL", title: "Base URL", type: "plain" }],
+          fetchUsage() { return { primary: { usedPercent: 25 } }; },
+        });
+        """
+        let transport = RecordingTransport(responseJSON: "{}")
+        let plugin = try fixture.loader(transport: transport)
+            .load(fileURL: fixture.write(name: "unset.js", source: source))
+        let expected = ProviderPluginError.endpointNotConfigured(plugin: "endpoint-config-demo", setting: "BASE_URL")
+
+        for settings in [[:], ["BASE_URL": ""], ["BASE_URL": "  \n "]] as [[String: String]] {
+            #expect(throws: expected) { _ = try plugin.approvalBinding(settings: settings) }
+            await #expect(throws: expected) {
+                _ = try await plugin.fetchUsage(settings: settings, secrets: [:], approvalStore: fixture.approvals)
+            }
+        }
+        #expect(transport.requestCount == 0)
+
+        #expect(throws: ProviderPluginError.self) {
+            _ = try plugin.approvalBinding(settings: ["BASE_URL": "http://gateway.example"])
+        }
+        do {
+            _ = try plugin.approvalBinding(settings: ["BASE_URL": "http://[bad"])
+            Issue.record("expected invalid URL error")
+        } catch let error as ProviderPluginError {
+            #expect(error != expected)
+        }
+
+        let settings = ["BASE_URL": "https://example.com"]
+        await #expect(throws: UserProviderPluginError.self) {
+            _ = try await plugin.fetchUsage(settings: settings, secrets: [:], approvalStore: fixture.approvals)
+        }
+        #expect(transport.requestCount == 0)
+    }
+
+    @Test
     func `plugin CLI renders identity only snapshots`() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }

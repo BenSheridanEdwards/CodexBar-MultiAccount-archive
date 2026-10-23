@@ -29,6 +29,7 @@
 
 ### Fixed
 
+- Plugins: report an empty endpoint setting as needing configuration instead of an invalid manifest, while still blocking fetches until the endpoint is set and approved (#4721). Thanks @coygeek!
 - Claude cost history: count Cowork audit and embedded transcript copies once and rebuild previously inflated cached reports (#4712).
 - Kiro: skip background CLI probes when the usage service is unreachable, preventing repeated offline sign-in tabs while retaining last-good usage (#4589). Thanks @dnicolson!
 - Linux CLI: prevent static musl builds from crashing when scanning non-empty Codex session files, with a regression check for musl and glibc builds (#4672, #4673). Thanks @harjothkhara and @psl75011!
